@@ -6,7 +6,7 @@ GitHub: https://github.com/highfidelity/unity-to-hifi-exporter/
 
 Contact: info@highfidelity.io
 
-The Unity to Highfidelity JSON/FBX Exporter adapted from the Unity FBX Exporter by Kellan Higgins(https://github.com/KellanHiggins/UnityFBXExporter).  
+The Unity to High Fidelity JSON/FBX Exporter adapted from the Unity FBX Exporter by Kellan Higgins(https://github.com/KellanHiggins/UnityFBXExporter).  
 
 It is a simple JSON and FBX writer designed to export static objects from Unity into the FBX format, preserving the materials, game object hierarchy and textures attached.
 
