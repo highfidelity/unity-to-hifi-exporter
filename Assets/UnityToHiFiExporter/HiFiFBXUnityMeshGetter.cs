@@ -65,29 +65,37 @@ namespace HiFiExporter
             long geometryId = GetRandomFBXId();
             long modelId = GetRandomFBXId();
 
-            //@cartzhang if SkinnedMeshRender gameobject, but has no meshfilter, add one.
-            SkinnedMeshRenderer[] meshfilterRender = gameObj.GetComponentsInChildren<SkinnedMeshRenderer>();
-            for (int i = 0; i < meshfilterRender.Length; i++)
-            {
-                if (meshfilterRender[i].GetComponent<MeshFilter>() == null)
-                {
-                    meshfilterRender[i].gameObject.AddComponent<MeshFilter>();
-                    meshfilterRender[i].GetComponent<MeshFilter>().sharedMesh = GameObject.Instantiate(meshfilterRender[i].sharedMesh);
-                }
-            } 
-
-            // Sees if there is a mesh to export and add to the system
+            // Sees if there is a skinned mesh renderer or regular mesh. Skinned meshes are baked into whatever pose they have and are exported
             MeshFilter filter = gameObj.GetComponent<MeshFilter>();
+			SkinnedMeshRenderer skinnedMesh = gameObj.GetComponent<SkinnedMeshRenderer>();
+
+			Mesh meshToExport = new Mesh();
+			if(filter != null)
+				meshToExport = filter.sharedMesh;
+			else if(skinnedMesh != null)
+			{
+				meshToExport = new Mesh();
+				skinnedMesh.BakeMesh(meshToExport);
+			}
+				
+
+			if(meshToExport == null)
+				Debug.LogError("Couldn't find a filter name");
 
 			string meshName = gameObj.name;
 
 			// A NULL parent means that the gameObject is at the top
 			string isMesh = "Null";
 
-			if(filter != null)
+			if(meshToExport != null)
 			{
-				meshName = filter.sharedMesh.name;
+				meshName = meshToExport.name;
 				isMesh = "Mesh";
+			}
+
+			if(meshName == "")
+			{
+				meshName = "Skinned Mesh " + Random.Range(0, 1000000);
 			}
 
 			if(parentModelId == 0)
@@ -141,9 +149,9 @@ namespace HiFiExporter
 			tempObjectSb.AppendLine("\t}");
 
 			// Adds in geometry if it exists, if it it does not exist, this is a empty gameObject file and skips over this
-			if(filter != null)
+			if(meshToExport != null)
 			{
-				Mesh mesh = filter.sharedMesh;
+				Mesh mesh = meshToExport;
 
 				// =================================
 				//         General Geometry Info

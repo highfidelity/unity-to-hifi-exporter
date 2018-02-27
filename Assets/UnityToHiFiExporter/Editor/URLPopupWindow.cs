@@ -20,7 +20,7 @@ public class URLPopupWindow : EditorWindow {
 	public static void Init()
 	{
 		URLPopupWindow window = ScriptableObject.CreateInstance<URLPopupWindow>();
-		window.position = new Rect(Screen.width / 2, Screen.height / 2, 250, 186);
+		window.position = new Rect(200, 200, 250, 186);
 		window.Focus();
 		setFocus = true;
 		window.ShowPopup();

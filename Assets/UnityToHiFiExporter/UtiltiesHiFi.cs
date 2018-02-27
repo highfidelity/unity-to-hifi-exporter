@@ -1,12 +1,80 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using System.Linq;
 
 /// <summary>
 /// Random Utilities file to help the exporter and provide additional debugging
 /// </summary>
 public static class UtiltiesHiFi
 {
+
+	public static string ReplaceAnySmallNumbersWithZeros(string jsonString)
+	{
+		for(int i = 12; i <= 48; i++)
+		{
+			string exponentString = "e-" + i;
+			jsonString = ReplaceSmallNumbers(jsonString, exponentString);
+		}
+
+		return jsonString;
+	}
+
+	private static string ReplaceSmallNumbers(string jsonString, string exponent, string almostZero = "0.0")
+	{
+		if(jsonString.IndexOf(exponent) > -1)
+		{
+			int removeStart = -1;
+			int length = -1;
+			int breaker = 0;
+
+			while(breaker < 1000)
+			{
+				breaker++;
+				RemoveSmallNumber(jsonString, exponent, out removeStart, out length);
+
+				if(removeStart > -1 && length > -1)
+				{
+					jsonString = jsonString.Remove(removeStart, length);
+					jsonString = jsonString.Insert(removeStart, almostZero);
+				}
+				else
+					break;
+
+				if(breaker == 999)
+					Debug.Log("breaker hit");
+			}
+		}
+
+		return jsonString;
+	}
+
+	private static void RemoveSmallNumber(string jsonString, string exponentString, out int startRemove, out int lengthToRemove)
+	{
+		int indexOfExponent = jsonString.IndexOf(exponentString);
+		int numbersBeforeExponent = 20;
+
+		int endOfLine = indexOfExponent + exponentString.Length;
+		if(indexOfExponent - numbersBeforeExponent < 0)
+		{
+			startRemove = -1;
+			lengthToRemove = -1;
+			return;
+		}
+
+		int period = jsonString.IndexOf('.', indexOfExponent - numbersBeforeExponent);
+
+		if(endOfLine < 0 || period < 0)
+		{
+			startRemove = -1;
+			lengthToRemove = -1;
+			return;
+		}
+
+		startRemove = period - 1;
+		lengthToRemove = endOfLine - startRemove;
+	}
+
 	/// <summary>
 	/// Finds the asset path folder that Unity stores things at
 	/// </summary>

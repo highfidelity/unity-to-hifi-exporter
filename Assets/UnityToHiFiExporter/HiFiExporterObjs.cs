@@ -40,4 +40,10 @@ namespace HiFiExporter
 		public int green;
 		public int blue;
 	}
+
+	public class MeshInfo
+	{
+		public string AssetFileName;
+//		public List<Material> Materials;
+	}
 }

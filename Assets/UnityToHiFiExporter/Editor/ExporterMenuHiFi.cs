@@ -5,6 +5,7 @@ using UnityEditor;
 using System.Text;
 using System.IO;
 using HiFiExporter;
+using System.Linq;
 
 namespace HiFiExporter 
 {
@@ -15,6 +16,7 @@ namespace HiFiExporter
 	enum ExportType
 	{
 		Procedural,
+		SkinnedMesh,
 		Fbx, // NOTE: Currently not used
 		Obj // NOTE: Currently not used
 	}
@@ -29,7 +31,7 @@ namespace HiFiExporter
 		private static string lastFbxFileName = "";
 
         // Dropdown
-		[MenuItem("GameObject/HiFi FBX Exporter/Only GameObject  %#e", false, 40)]
+		[MenuItem("GameObject/Export Scene or Selected Objs to HiFi %#e", false, 40)]
         public static void ExportDropdownGameObjectToFBX() 
 		{
 			if(lastJsonPath == "")
@@ -102,7 +104,10 @@ namespace HiFiExporter
 			for (int i = 0; i < gameObjectsSelected.Count; i++) 
 			{
 				// skip if gameobject is a camera
-				if (gameObjectsSelected[i].GetComponent<Camera> ()) 
+				// ALL THE EXCEPTIONS 
+				if (gameObjectsSelected[i].GetComponent<Camera>()
+					|| gameObjectsSelected[i].transform.root.GetComponent<Canvas>()// HACK to make sure we don't export the huge canvas
+				)
 					continue;
 				else if(gameObjectsSelected[i].GetComponent<Light> ()) // TODO - reintroduce exporting lights
 					gameObjectsToExport.Add(gameObjectsSelected[i]);
@@ -120,6 +125,12 @@ namespace HiFiExporter
 					Debug.LogError("Already contains a gameObject");
 			}
 
+			if(gameObjectsToExport.Count < 1)
+			{
+				Debug.LogError("No gameObjects selected, did not export anything");
+				return;
+			}
+				
 			// Use a ref to update the jsonObject so it is ready for export when it gets in
 			ExportGameObjectAsJsonToHF(gameObjectsToExport, rootfolderPath, fileName);
 		}
@@ -128,18 +139,50 @@ namespace HiFiExporter
 		public static void ExportGameObjectAsJsonToHF(List<GameObject> gameObjectsToExport, string rootPath, string fileName) 
 		{
 			// Used to prevent duplicate meshes being created
-			Dictionary<Mesh, string> meshReference = new Dictionary<Mesh, string>();
+			Dictionary<string, string> meshReference = new Dictionary<string, string>();
 
 			// Set up the directory for the fbx files
 			string fbxExportPath = rootPath + @"FBXObjects/";
 			if(Directory.Exists(fbxExportPath) == false)
 				Directory.CreateDirectory(fbxExportPath);
 
+			// We go through all the parent gameObjects and find the center of the bounding box. We will then offset
+			// by this amount so when you import something into HiFi it doesn't get placed very far away
+
+			Bounds boundsForAllObjects = new Bounds();
+			bool boundsInit = false;
+			for(int i = 0; i < gameObjectsToExport.Count; i++)
+			{
+				Transform trans = gameObjectsToExport[i].transform;
+
+				if(trans.parent != null && GUIDReference.ContainsKey(trans.parent.gameObject) == true)
+					continue;
+
+				// HACK - skip the directional light and area lights since we skip them below
+				// When area / directional lights are added, remove the 3 lines.
+				Light light = trans.gameObject.GetComponent<Light>();
+				if(light != null && (light.type == LightType.Directional || light.type == LightType.Area))
+					continue;
+				// END HACK
+
+				// NOTE: If you use "continue" in the loop to NOT write out any objects to the json component, we have to add an exception here.
+
+				// We no
+				if(boundsInit == false)
+				{
+					boundsForAllObjects = new Bounds(trans.position, Vector3.zero);
+					boundsInit = true;
+				}
+				else
+					boundsForAllObjects.Encapsulate(trans.position);
+			}
+
+
 			StringBuilder jsonOutput = new StringBuilder("{\"Entities\":[");
-			for (int i = 0; i < gameObjectsToExport.Count; i++)
+			for (int gameObjectIndex = 0; gameObjectIndex < gameObjectsToExport.Count; gameObjectIndex++)
 			{
 				// First we make sure to export the rotation, position and scale correctly for all the objects
-				GameObject gameObj = gameObjectsToExport[i];
+				GameObject gameObj = gameObjectsToExport[gameObjectIndex];
 				HiFiJsonObject jsonObject = new HiFiJsonObject();
 
 				// Set up ids and parent ids if applicable
@@ -159,12 +202,12 @@ namespace HiFiExporter
 				jsonObject.dimensions = Vector3.one * .1f;
 				jsonObject.collisionless = true;
 
-				Light light = gameObjectsToExport[i].GetComponent<Light>();
+				Light light = gameObjectsToExport[gameObjectIndex].GetComponent<Light>();
 
 				// Offsets the position compared to the center of the mesh versus the FBX rotational point
 				if(gameObj.transform.parent == null || hasParent == false)
 				{
-					jsonObject.position = gameObjectsToExport[i].transform.position;
+					jsonObject.position = gameObjectsToExport[gameObjectIndex].transform.position;
 					jsonObject.position.x *= -1;
 
 					jsonObject.rotation = ConvertToHFQuaternion(gameObj.transform.rotation);
@@ -173,8 +216,6 @@ namespace HiFiExporter
 					if(light != null)
 					{
 						Quaternion worldRotation = gameObj.transform.rotation * Quaternion.Euler(0, 180f, 0);
-//						Quaternion rotateIt = Quaternion.AngleAxis(180, gameObj.transform.up);
-//						worldRotation *= rotateIt;
 						jsonObject.rotation = ConvertToHFQuaternion(worldRotation);
 					}
 				}
@@ -225,10 +266,6 @@ namespace HiFiExporter
 					if((light.type == LightType.Point || light.type == LightType.Spot))
 					{
 						// lights look in the opposite direction of HF, so we have to flip the rotation
-
-
-
-
 						jsonObject.type = "Light";
 
 						jsonObject.registrationPoint = Vector3.one / 2f;
@@ -261,12 +298,25 @@ namespace HiFiExporter
 					}
 				}
 
+				// Find the mesh to use
 				MeshFilter meshFilter = gameObj.GetComponent<MeshFilter>();
+				SkinnedMeshRenderer skinnedMeshRenderer = gameObj.GetComponent<SkinnedMeshRenderer>();
+
+				Mesh objectMesh = null;
+
+				if(meshFilter != null)
+					objectMesh = meshFilter.sharedMesh;
+				else if(skinnedMeshRenderer != null)
+				{
+					objectMesh = new Mesh();
+					skinnedMeshRenderer.BakeMesh(objectMesh);
+				}
+					
 
 				// In some cases, a light and a mesh may be in the same object.
 				// If this happens, we have to duplicate the object and create it anew
 				// NOTE: The light will be detached from the hierachy tree in this case
-				if(light != null && meshFilter != null)
+				if(light != null && objectMesh != null)
 				{
 					// Save the old guid
 					string oldGuid = jsonObject.id;
@@ -283,7 +333,7 @@ namespace HiFiExporter
 					jsonObject.id = oldGuid;
 				}
 
-				if(meshFilter != null)
+				if(objectMesh != null)
 				{
 					jsonObject.collisionless = false;
 
@@ -292,7 +342,9 @@ namespace HiFiExporter
 
 					// Find if we have a fbx file that is being reference,
 					// If we do, extract that file, copy and reference this
-					string assetPath = AssetDatabase.GetAssetPath(meshFilter.sharedMesh);
+					string assetPath = "";
+					if(meshFilter != null)
+						assetPath = AssetDatabase.GetAssetPath(meshFilter.sharedMesh);
 					string assetFileName = GetFileName(assetPath);
 					string folderAssetsPath = Application.dataPath;
 					folderAssetsPath = folderAssetsPath.Remove(folderAssetsPath.Length - 6, 6);
@@ -310,6 +362,9 @@ namespace HiFiExporter
 //					else
 //						Debug.LogError("Export Type has not been set because the exention was \"" + extension + "\"");
 
+					if(skinnedMeshRenderer != null)
+						exportType = ExportType.SkinnedMesh;
+
 					// -- HACK -- Always forcing to procedural so materials export correctly
 					exportType = ExportType.Procedural;
 
@@ -322,12 +377,14 @@ namespace HiFiExporter
 //						System.IO.File.Copy(fullAssetPath, fbxExportPath + assetFileName, true);
 //						relativeAssetFileName = "FBXObjects/" + assetFileName;
 //						break;
+
 					case ExportType.Obj: // No longer copying or exporting OBJ or FBX files so no longer needed
 //						System.IO.File.Copy(fullAssetPath, objExportPath + assetFileName, true);
 //						// TODO - maybe copy the material file here too
 //						relativeAssetFileName = "ObjObjects/" + assetFileName;
 						Debug.LogError("Export type is either FBX or OBJ, this shouldn't be happening");
 						break;
+
 					case ExportType.Procedural:
 						// Check to see if an asset file name was found
 						// Also sets up the file name if it has none
@@ -340,9 +397,12 @@ namespace HiFiExporter
 						assetFileName = RemoveFileExtension(assetFileName);
 						assetFileName += ".fbx";
 					
-						Mesh meshie = meshFilter.sharedMesh;
+						MeshRenderer meshRenderer = gameObj.GetComponent<MeshRenderer>();
 
-						if(meshReference.ContainsKey(meshie) == false)
+						// Gets the unique mesh ID based on this object so we don't duplicate prefabs
+						string meshUniqueId = GetUniqueMeshID(objectMesh, meshRenderer);
+
+						if(meshReference.ContainsKey(meshUniqueId) == false)
 						{
 							// Checks to see if the file name already exists (in the case of duplicates)
 							// and tacks on a unique number
@@ -352,10 +412,37 @@ namespace HiFiExporter
 							if(success == false)
 								Debug.Log("Failed to export item " + assetFileName);
 
-							meshReference.Add(meshie, assetFileName);
+							meshReference.Add(meshUniqueId, assetFileName);
 						}
 
-						relativeAssetFileName = "FBXObjects/" + meshReference[meshie];
+						relativeAssetFileName = "FBXObjects/" + meshReference[meshUniqueId];
+						break;
+
+					case ExportType.SkinnedMesh:
+						if(assetFileName == "")
+							assetFileName = "SkinnedMesh" + Random.Range(0, 1000000);
+
+						// Remove whatever ending this file has (like .blend) and add fbx for export
+						assetFileName = RemoveFileExtension(assetFileName);
+						assetFileName += ".fbx";
+
+						// Gets the unique mesh ID based on this object so we don't duplicate prefabs
+						string skinnedMeshUniqueId = objectMesh.GetInstanceID().ToString();
+
+						if(meshReference.ContainsKey(skinnedMeshUniqueId) == false)
+						{
+							// Checks to see if the file name already exists (in the case of duplicates)
+							// and tacks on a unique number
+							assetFileName = MakeUniqueAssetFileName(assetFileName, fbxExportPath);
+
+							bool skinnedSuccess = HighFidelityFBXExporter.ExportGameObjToFBX(gameObj, fbxExportPath + assetFileName, true, true);
+							if(skinnedSuccess == false)
+								Debug.Log("Failed to export item " + assetFileName);
+
+							meshReference.Add(skinnedMeshUniqueId, assetFileName);
+						}
+
+						relativeAssetFileName = "FBXObjects/" + meshReference[skinnedMeshUniqueId];
 						break;
 					}
 
@@ -365,16 +452,14 @@ namespace HiFiExporter
 					// NOTE NOTE - THIS IS WHERE WE REFERENCE THE URL CORRECTLY
 					if(URLPopupWindow.LocalOnly == false)
 						jsonObject.modelURL = URLPopupWindow.URLFolder + relativeAssetFileName;
-
-					Mesh mesh = meshFilter.sharedMesh;
-
+					
 					// Meshes need to be offset correctly, so we have to redo the calcuations
 					jsonObject.registrationPoint.x = .5f;
 					jsonObject.registrationPoint.y = .5f;
 					jsonObject.registrationPoint.z = .5f;
 
 					// Find the rotation in local exporting space
-					Vector3 dimensions = mesh.bounds.size;
+					Vector3 dimensions = objectMesh.bounds.size;
 
 					jsonObject.dimensions.x = dimensions.x * gameObj.transform.lossyScale.x;
 					jsonObject.dimensions.y = dimensions.y * gameObj.transform.lossyScale.y;
@@ -385,10 +470,10 @@ namespace HiFiExporter
 					{
 						// If there is no parent, then we just offset by the world position
 						// If a subobject of a tree is selected, the parent is the highest in the tree
-						jsonObject.position = gameObjectsToExport[i].transform.position;
+						jsonObject.position = gameObjectsToExport[gameObjectIndex].transform.position;
 						jsonObject.position.x *= -1;
 
-						Vector3 positionOffset = FindOffset(mesh, gameObj);
+						Vector3 positionOffset = FindOffset(objectMesh, gameObj);
 						jsonObject.position += positionOffset;
 
 						jsonObject.rotation = ConvertToHFQuaternion(gameObj.transform.rotation);
@@ -403,7 +488,7 @@ namespace HiFiExporter
 						MeshFilter parentMeshFilter = gameObj.transform.parent.gameObject.GetComponent<MeshFilter>();
 						Transform childTransform = gameObj.transform;
 
-						Vector3 childMeshCenter = mesh.bounds.center;
+						Vector3 childMeshCenter = objectMesh.bounds.center;
 
 						Vector3 parentMeshCenter = Vector3.zero;
 						if(parentMeshFilter != null)
@@ -431,8 +516,19 @@ namespace HiFiExporter
 					}
 				}
 
-				// Writing JSON to file
+				// Offsets the whole group by the center so it imports closed to the player in HiFi
+				if(jsonObject.parentID == GetBlankID())
+				{
+					Vector3 reversedBounds = boundsForAllObjects.center;
+					reversedBounds.x *= -1;
+					jsonObject.position -= reversedBounds;
+				}
+
 				string jsonString = JsonUtility.ToJson(jsonObject, true);
+
+				// Used to zero out any extremely small numbers (e-XX) in the json file. Is a HACK.
+//				jsonString = UtiltiesHiFi.ReplaceAnySmallNumbersWithZeros(jsonString);
+
 				jsonOutput.Append(jsonString);
 				jsonOutput.Append(",");
 			}
@@ -531,6 +627,32 @@ namespace HiFiExporter
 			return parentTransform.gameObject;
 		}
 
+		/// <summary>
+		/// Creates a unique key for this mesh + material
+		/// </summary>
+		public static string GetUniqueMeshID(Mesh mesh, MeshRenderer meshRenderer)
+		{
+			if(meshRenderer == null)
+				return mesh.GetInstanceID().ToString();
+
+			string returnString = mesh.GetInstanceID().ToString();
+
+			Material[] materials = meshRenderer.sharedMaterials;
+
+			for(int i = 0; i < materials.Length; i++)
+			{
+				if(materials[i] != null)
+					returnString += materials[i].GetInstanceID();
+				else
+				{
+					returnString += "null" + i.ToString();
+					Debug.LogError("A mesh " + meshRenderer.name + " has a null material, could cause issues on import.");
+				}
+					
+			}
+
+			return returnString;
+		}
 
 		#endregion
 
@@ -605,11 +727,17 @@ namespace HiFiExporter
 
 		private static string GetFileName(string pathWithFileName)
 		{
+			if(pathWithFileName.LastIndexOf('/') < 0)
+				return "";
+
 			return pathWithFileName.Remove(0, pathWithFileName.LastIndexOf('/') + 1);
 		}
 
 		private static string GetFileExtension(string pathWithFileName)
 		{
+			if(pathWithFileName.LastIndexOf('.') < 0)
+				return "";
+			
 			return pathWithFileName.Remove(0, pathWithFileName.LastIndexOf('.') + 1);
 		}
 
