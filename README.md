@@ -8,7 +8,7 @@ Contact: info@highfidelity.io
 
 The Unity to High Fidelity JSON/FBX Exporter is adapted from the Unity FBX Exporter by Kellan Higgins(https://github.com/KellanHiggins/UnityFBXExporter).  
 
-It is a simple JSON and FBX writer designed to export static objects (an render skinned meshes to static poses) from Unity into the FBX format, preserving the materials, game object hierarchy and textures attached.
+It is a simple JSON and FBX writer designed to export static objects (and render skinned meshes to static poses) from Unity into the FBX format, preserving the materials, game object hierarchy and textures attached.
 
 It was written for High Fidelity - An early-stage technology lab experimenting with Virtual Worlds and VR.  https://github.com/highfidelity/hifi
 
