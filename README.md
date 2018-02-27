@@ -8,7 +8,7 @@ Contact: info@highfidelity.io
 
 The Unity to High Fidelity JSON/FBX Exporter is adapted from the Unity FBX Exporter by Kellan Higgins(https://github.com/KellanHiggins/UnityFBXExporter).  
 
-It is a simple JSON and FBX writer designed to export static objects from Unity into the FBX format, preserving the materials, game object hierarchy and textures attached.
+It is a simple JSON and FBX writer designed to export static objects (an render skinned meshes to static poses) from Unity into the FBX format, preserving the materials, game object hierarchy and textures attached.
 
 It was written for High Fidelity - An early-stage technology lab experimenting with Virtual Worlds and VR.  https://github.com/highfidelity/hifi
 
@@ -24,15 +24,7 @@ Features
 
 4. Exports texture references into the FBX file.
 
-5. Can make a copy of all materials and link them to newly minted FBX file.
-
-6. Can make a copy of all textures and link them to newly create materials.
-
-7. Export very deeply hierarchical Game Objects with just a few clicks.
-
-8. Objects will export their rotation correctly throughout the hierarchy (thanks @quickfingerz on Github).
-
-9. Objects will also export their scale correctly (thanks @quickfingerz on Github).
+5. Exports will import into HiFi with one click of the menu
 
 
 Known limitations
@@ -44,12 +36,7 @@ Known limitations
 
 3. Only exports one UV map, not a AO UV 2 map.
 
-4. Sort of works at Runtime. Needs to use File.IO instead of AssetDatabase to truly work at runtime.
-
-5. Sometimes the reimported FBX files don't find the right materials. C'est la vie.
-
-6. Exporting a prefab in the Project Tab sort of works. Needs more testing
-
+4. Parents which skew their children will not import correctly. This is a different from how HiFi versus Unity handles scaling.
 
 Tutorial
 ------------------------
