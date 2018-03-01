@@ -7,6 +7,7 @@ using System.IO;
 using HiFiExporter;
 using System.Linq;
 
+
 namespace HiFiExporter 
 {
 	/// <summary>
@@ -17,6 +18,7 @@ namespace HiFiExporter
 	{
 		Procedural,
 		SkinnedMesh,
+		PlaneOrQuad,
 		Fbx, // NOTE: Currently not used
 		Obj // NOTE: Currently not used
 	}
@@ -176,7 +178,6 @@ namespace HiFiExporter
 				else
 					boundsForAllObjects.Encapsulate(trans.position);
 			}
-
 
 			StringBuilder jsonOutput = new StringBuilder("{\"Entities\":[");
 			for (int gameObjectIndex = 0; gameObjectIndex < gameObjectsToExport.Count; gameObjectIndex++)
@@ -359,14 +360,17 @@ namespace HiFiExporter
 						exportType = ExportType.Obj;
 					else if(extension == "blend")
 						exportType = ExportType.Procedural;
-//					else
-//						Debug.LogError("Export Type has not been set because the exention was \"" + extension + "\"");
+					
+					// -- HACK -- Always forcing to procedural so materials export correctly, this may change if we include FBX and OBJ copying
+					exportType = ExportType.Procedural;
 
+					// Skinned meshes need to be baked into whatever pose they are in, so we have a different path for that
 					if(skinnedMeshRenderer != null)
 						exportType = ExportType.SkinnedMesh;
 
-					// -- HACK -- Always forcing to procedural so materials export correctly
-					exportType = ExportType.Procedural;
+					// HACK - planes and quads do not export correctly, so instead we are exporting them as HiFi simple objects
+					if(assetFileName == "unity default resources" && (objectMesh.name == "Plane" || objectMesh.name == "Quad"))
+						exportType = ExportType.PlaneOrQuad;
 
 					string relativeAssetFileName = "";
 
@@ -376,7 +380,7 @@ namespace HiFiExporter
 					case ExportType.Fbx:
 //						System.IO.File.Copy(fullAssetPath, fbxExportPath + assetFileName, true);
 //						relativeAssetFileName = "FBXObjects/" + assetFileName;
-//						break;
+						break;
 
 					case ExportType.Obj: // No longer copying or exporting OBJ or FBX files so no longer needed
 //						System.IO.File.Copy(fullAssetPath, objExportPath + assetFileName, true);
@@ -443,6 +447,12 @@ namespace HiFiExporter
 						}
 
 						relativeAssetFileName = "FBXObjects/" + meshReference[skinnedMeshUniqueId];
+						break;
+
+					case ExportType.PlaneOrQuad:
+						jsonObject.type = "Box";
+						jsonObject.shapeType = "box";
+						relativeAssetFileName = "";
 						break;
 					}
 
@@ -514,6 +524,21 @@ namespace HiFiExporter
 						// Will throw error but still allow export
 						CheckForParentSkew(gameObj, GUIDReference);
 					}
+
+					// HACK - Ensures that planes or quads have proper dimensions and no reference to a model URL
+					if(exportType == ExportType.PlaneOrQuad)
+					{
+						jsonObject.modelURL = "";
+
+						if(objectMesh.name == "Plane")
+						{
+
+						}
+						else
+						{
+
+						}
+					}
 				}
 
 				// Offsets the whole group by the center so it imports closed to the player in HiFi
@@ -526,9 +551,11 @@ namespace HiFiExporter
 
 				string jsonString = JsonUtility.ToJson(jsonObject, true);
 
-				// Used to zero out any extremely small numbers (e-XX) in the json file. Is a HACK.
-//				jsonString = UtiltiesHiFi.ReplaceAnySmallNumbersWithZeros(jsonString);
-
+				// If we have an object mesh, we simplify the jsonObject to remove the light information
+				// This is a bit messy because it is inversed parenting, but changing it to use inheritance would cause more issues at this time
+				if(objectMesh != null)
+					jsonString = JsonUtility.ToJson(new HiFiModelObject(jsonObject), true);
+				
 				jsonOutput.Append(jsonString);
 				jsonOutput.Append(",");
 			}
