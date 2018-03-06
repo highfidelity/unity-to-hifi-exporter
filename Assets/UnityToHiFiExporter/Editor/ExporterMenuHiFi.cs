@@ -36,6 +36,8 @@ namespace HiFiExporter
 		[MenuItem("GameObject/Export Scene or Selected Objs to HiFi %#e", false, 40)]
         public static void ExportDropdownGameObjectToFBX() 
 		{
+			EditorUtility.ClearProgressBar(); // Ensures that any progress bar has been cleared before starting
+
 			if(lastJsonPath == "")
 				lastJsonPath = Application.dataPath;
 			else
@@ -69,6 +71,8 @@ namespace HiFiExporter
 		/// </summary>
 		public static void ExportCurrentGameObjects()
 		{
+			EditorUtility.DisplayProgressBar("Exporting FBX files", "Progress", 0);
+
 			// Destroy all the FBX files at the path so we don't constantly save over everything
 			CleanUpAnyOldFiles(lastJsonPath);
 
@@ -155,6 +159,8 @@ namespace HiFiExporter
 			bool boundsInit = false;
 			for(int i = 0; i < gameObjectsToExport.Count; i++)
 			{
+
+
 				Transform trans = gameObjectsToExport[i].transform;
 
 				if(trans.parent != null && GUIDReference.ContainsKey(trans.parent.gameObject) == true)
@@ -182,6 +188,8 @@ namespace HiFiExporter
 			StringBuilder jsonOutput = new StringBuilder("{\"Entities\":[");
 			for (int gameObjectIndex = 0; gameObjectIndex < gameObjectsToExport.Count; gameObjectIndex++)
 			{
+				EditorUtility.DisplayProgressBar("Exporting FBX files", "Progress", (float)gameObjectIndex / (float)gameObjectsToExport.Count);
+
 				// First we make sure to export the rotation, position and scale correctly for all the objects
 				GameObject gameObj = gameObjectsToExport[gameObjectIndex];
 				HiFiJsonObject jsonObject = new HiFiJsonObject();
@@ -563,8 +571,12 @@ namespace HiFiExporter
 			if(jsonOutput[jsonOutput.Length - 1] == ',')
 				jsonOutput.Remove(jsonOutput.Length - 1, 1);
 
+			EditorUtility.DisplayProgressBar("Writing File", "", 1);
+
 			jsonOutput.Append("]}");
 			System.IO.File.WriteAllText(rootPath + fileName, jsonOutput.ToString());
+
+			EditorUtility.ClearProgressBar();
 		}
 
 
