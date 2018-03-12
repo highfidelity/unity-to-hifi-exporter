@@ -38,7 +38,7 @@ Known limitations
 
 4. Parents which skew their children will not import correctly. This is a different from how HiFi versus Unity handles scaling.
 
-5. Things that are not supported include partical effects, terrains, scripts, and cameras.
+5. The list of currently not supported items include partical effects, terrains, scripts, and cameras.
 
 Tutorial
 ------------------------
