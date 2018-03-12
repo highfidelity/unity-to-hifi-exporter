@@ -38,6 +38,8 @@ Known limitations
 
 4. Parents which skew their children will not import correctly. This is a different from how HiFi versus Unity handles scaling.
 
+5. Things that are not supported include partical effects, terrains, scripts, and cameras.
+
 Tutorial
 ------------------------
 It is very simple to use this exporter. You shouldn't have any problems, and if you do, please add an issue to the Github project
