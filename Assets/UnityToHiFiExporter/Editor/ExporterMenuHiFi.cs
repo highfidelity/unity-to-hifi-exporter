@@ -427,7 +427,7 @@ namespace HiFiExporter
 							meshReference.Add(meshUniqueId, assetFileName);
 						}
 
-						relativeAssetFileName = "FBXObjects/" + meshReference[meshUniqueId];
+						relativeAssetFileName = "FBXObjects/" + WWW.EscapeURL(meshReference[meshUniqueId]).Replace("+","%20");
 						break;
 
 					case ExportType.SkinnedMesh:
@@ -454,7 +454,7 @@ namespace HiFiExporter
 							meshReference.Add(skinnedMeshUniqueId, assetFileName);
 						}
 
-						relativeAssetFileName = "FBXObjects/" + meshReference[skinnedMeshUniqueId];
+						relativeAssetFileName = "FBXObjects/" + WWW.EscapeURL(meshReference[skinnedMeshUniqueId]).Replace("+","%20");
 						break;
 
 					case ExportType.PlaneOrQuad:
