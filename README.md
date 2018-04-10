@@ -1,6 +1,5 @@
-=========================
-Unity FBX Exporter (1.2.0)
--------------------------
+Unity to High Fidelity Exporter (1.0)
+=======
 
 GitHub: https://github.com/highfidelity/unity-to-hifi-exporter/
 
@@ -59,12 +58,11 @@ Blender 2.70 doesn't take ASCII FBX files. So you'll need to download the conver
 Known Issues
 ------------------------
 
-1. Skinned mesh renderers may or may not be exporting materials correctly. Did not work on my test object.
-2. Standard objects throw an error if you try and export them (like the sphere). Still seems to export fine. Also why are you exporting Unity's sphere???
+1. Skinned mesh renderers may or may not be exporting materials correctly. Did not work on the test objects.
 
 Crediting This Project
 ------------------------
 
-As a note, this project is an MIT license. Which means you can take this code, upload it to the Unity Asset store and charge money for it. BUT, you must include the license (including the bit about Building Crafter) in your project. If you have any questions about this, hit me up.
+As a note, this project is an MIT license and is also based on the orignal project Unity FBX Exporter created by Kellan Higgins. Which means you can take this code, upload it to the Unity Asset store and charge money for it. BUT, you must include the license (including the bit about Building Crafter) in your project. If you have any questions about this, please contact the original fbx exporter.
 
-If you compact it into a DLL and hide all the code away, you still have to include the license somewhere. I'd much rather you come to me then find out you've taken in 4 months later. Don't be a dick, give back to the community!
+If you compact it into a DLL and hide all the code away, you still have to include the license somewhere.

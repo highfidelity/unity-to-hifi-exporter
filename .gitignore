@@ -1,8 +1,11 @@
 # Unity To HiFi Ignores
 /Assets/UnityHiFiExport.json
+/Assets/UnityHiFiExport.json*
 /Assets/FBXObjects/
 /Assets/FBXObjects*
 /Assets/FbxExporters
+/Assets/Materials/
+/Assets/Materials*
 
 # Standard Unity Stuff
 /[Ll]ibrary/
