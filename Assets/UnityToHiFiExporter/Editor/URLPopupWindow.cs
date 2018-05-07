@@ -78,7 +78,7 @@ namespace HiFiExporter
 			GUILayout.Space(10);
 
 			GUI.SetNextControlName("URLField");
-			URLFolder = GUILayout.TextArea(URLFolder);
+			URLFolder = EditorGUILayout.TextArea(URLFolder);
 
 			if(setFocus == true)
 			{
